@@ -70,3 +70,97 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--foreground-rgb), 0.3);
 }
+
+@media print {
+  /* Reset all colors to black on white */
+  * {
+    color: black !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Hide everything except the print content */
+  body > *:not(.print-content) {
+    display: none !important;
+  }
+
+  /* Hide non-essential elements */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Remove shadows and borders for cleaner print */
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+
+  .print\:border-0 {
+    border: none !important;
+  }
+
+  /* Reset page margins */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  /* Force background colors and images to print */
+  .bg-gray-50,
+  .bg-primary\/10 {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Print-specific styles */
+  .print-content {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Ensure tables print properly */
+  table {
+    page-break-inside: avoid;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  /* Ensure proper font sizes for print */
+  h1 { font-size: 18pt !important; }
+  h2 { font-size: 16pt !important; }
+  h3 { font-size: 14pt !important; }
+  p, td, th { font-size: 11pt !important; }
+  .text-sm { font-size: 10pt !important; }
+
+  /* Force black text for specific elements that might inherit other colors */
+  .text-primary,
+  .text-gray-500,
+  .text-gray-600,
+  th,
+  td,
+  p,
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: black !important;
+  }
+
+  /* Ensure proper contrast for backgrounds */
+  .bg-gray-50,
+  .bg-primary\/10 {
+    background-color: #f9f9f9 !important;
+  }
+
+  /* Ensure images print in black */
+  img, svg {
+    filter: brightness(0) !important;
+  }
+}

@@ -1,134 +1,88 @@
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
-const Header = () => {
-  const pathname = usePathname();
-  
-  const isLoginPage = pathname === '/';
-  const isAgent = pathname.includes('/agents');
-  
+export default function Header() {
   return (
-    <header className="bg-white shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="bg-white border-b">
+      <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link href="/agents/dashboard" className="flex-shrink-0">
-              <svg width="200" height="50" viewBox="0 0 200 50" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
-                <path d="M30.5 10L40 20L30.5 30L21 20L30.5 10Z" fill="#0D9488" />
-                <path d="M30.5 5L48 22.5L30.5 40L13 22.5L30.5 5Z" stroke="#0D9488" strokeWidth="2" />
-                <path d="M60 22H56L64 12H68L60 22Z" fill="#0D9488" />
-                <path d="M71 12H75V32H71V12Z" fill="#0D9488" />
-                <path d="M80 12H84V15C85 13 87 12 89 12C94 12 96 15 96 20V32H92V21C92 17 91 16 88 16C85 16 84 18 84 21V32H80V12Z" fill="#0D9488" />
-                <path d="M100 22C100 16 104 12 110 12C116 12 120 16 120 22C120 28 116 32 110 32C104 32 100 28 100 22ZM116 22C116 18 114 16 110 16C106 16 104 18 104 22C104 26 106 28 110 28C114 28 116 26 116 22Z" fill="#0D9488" />
-                <path d="M122 12H126V15C127 13 129 12 131 12C136 12 138 15 138 20V32H134V21C134 17 133 16 130 16C127 16 126 18 126 21V32H122V12Z" fill="#0D9488" />
-                <path d="M140 12H144V32H140V12Z" fill="#0D9488" />
-                <path d="M146 22C146 16 150 12 156 12C160 12 165 14 166 19H161C160 17 158 16 156 16C152 16 150 18 150 22C150 26 152 28 156 28C158 28 160 27 161 25H166C165 30 160 32 156 32C150 32 146 28 146 22Z" fill="#0D9488" />
-              </svg>
+            <Link href="/">
+              <img src="/assets/logo.svg" alt="FlightLogic" className="h-8" />
             </Link>
           </div>
           
-          {!isLoginPage && (
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-baseline space-x-4">
-                <Link 
-                  href="/agents/dashboard" 
-                  className={cn(
-                    'px-3 py-2 rounded-md text-sm font-medium',
-                    pathname === '/agents/dashboard' 
-                      ? 'bg-primary text-white' 
-                      : 'text-gray-700 hover:bg-gray-100'
-                  )}
-                >
-                  Dashboard
-                </Link>
-                <Link 
-                  href="/agents/searchIndex" 
-                  className={cn(
-                    'px-3 py-2 rounded-md text-sm font-medium',
-                    pathname === '/agents/searchIndex' 
-                      ? 'bg-primary text-white' 
-                      : 'text-gray-700 hover:bg-gray-100'
-                  )}
-                >
-                  Search Flights
-                </Link>
-                <Link 
-                  href="#" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  Bookings
-                </Link>
-                <Link 
-                  href="#" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  Reports
-                </Link>
-                <Link 
-                  href="#" 
-                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
-                >
-                  Support
-                </Link>
+          <nav className="hidden md:flex space-x-4">
+            <Button variant="ghost" asChild>
+              <Link href="/agents/dashboard">Dashboard</Link>
+            </Button>
+            
+            {/* Administration Dropdown */}
+            <div className="relative group">
+              <Button variant="ghost" className="relative z-50">
+                Administration
+                <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </Button>
+              {/* Added a pseudo-element to create a hover bridge */}
+              <div className="absolute top-full left-0 w-48 pt-2 invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200">
+                <div className="bg-white border rounded-md shadow-lg py-1">
+                  <Link href="/administration/sub-agents/add" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    Add Sub Agent
+                  </Link>
+                  <Link href="/administration/manage-subagent" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    Manage Sub Agents
+                  </Link>
+                </div>
               </div>
             </div>
-          )}
-          
-          <div className="hidden md:block">
-            <div className="ml-4 flex items-center md:ml-6">
-              {isLoginPage ? (
-                <div className="flex space-x-4">
-                  <Link 
-                    href="/agents/login" 
-                    className="px-3 py-2 rounded-md text-sm font-medium bg-primary text-white hover:bg-primary-dark"
-                  >
-                    Agent Login
-                  </Link>
-                  <Link 
-                    href="/request-demo" 
-                    className="px-3 py-2 rounded-md text-sm font-medium border border-primary text-primary hover:bg-gray-50"
-                  >
-                    Request Demo
-                  </Link>
+
+            <Button variant="ghost" asChild>
+              <Link href="/bookings">Bookings</Link>
+            </Button>
+            
+            <Button variant="ghost" asChild>
+              <Link href="/agents/searchIndex">Flights</Link>
+            </Button>
+          </nav>
+
+          <div className="flex items-center space-x-4">
+            {/* User Avatar Dropdown */}
+            <div className="relative group">
+              <button className="flex items-center space-x-2 focus:outline-none">
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
                 </div>
-              ) : (
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">Agent: John Doe</span>
-                  <button className="p-1 rounded-full text-gray-700 hover:text-gray-900 focus:outline-none">
-                    <span className="sr-only">View notifications</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                  </button>
-                  <div className="ml-3 relative">
-                    <div>
-                      <button className="max-w-xs bg-gray-200 rounded-full flex items-center text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-                        <span className="sr-only">Open user menu</span>
-                        <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-                          JD
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div className="absolute right-0 z-50 hidden group-hover:block w-48 bg-white border rounded-md shadow-lg py-1 mt-1">
+                <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  Profile
+                </Link>
+                <Link href="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  Settings
+                </Link>
+                <div className="border-t border-gray-100"></div>
+                <button 
+                  onClick={() => {
+                    // Add logout logic here
+                    console.log('Logging out...');
+                  }} 
+                  className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
-          </div>
-          
-          <div className="-mr-2 flex md:hidden">
-            <button className="bg-white inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary">
-              <span className="sr-only">Open main menu</span>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
           </div>
         </div>
       </div>
     </header>
   );
-};
-
-export default Header;
+}

@@ -2,25 +2,30 @@
  * Utility functions for the application
  */
 
-// Format date to display in a readable format
+// Format date string to DD MMM YYYY format
 export function formatDate(dateString) {
-  const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+  if (!dateString) return '';
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', options);
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
 }
 
-// Format time to display in 12-hour format with AM/PM
+// Format time string to HH:mm format
 export function formatTime(timeString) {
-  const date = new Date(`2000-01-01T${timeString}`);
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  if (!timeString) return '';
+  return timeString;
 }
 
 // Format duration from minutes to hours and minutes
-export function formatDuration(minutes) {
+export const formatDuration = (minutes) => {
+  if (!minutes) return '';
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   return `${hours}h ${mins}m`;
-}
+};
 
 // Calculate time difference between departure and arrival
 export function calculateDuration(departureTime, arrivalTime, departureDate, arrivalDate) {
@@ -31,12 +36,14 @@ export function calculateDuration(departureTime, arrivalTime, departureDate, arr
 }
 
 // Format price with currency symbol
-export function formatPrice(price, currency = 'USD') {
+export const formatPrice = (amount) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
-  }).format(price);
-}
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(amount);
+};
 
 // Generate a unique booking reference
 export function generateBookingReference() {
@@ -78,3 +85,19 @@ export function isValidEmail(email) {
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
+
+// Helper function to get status badge variant
+export const getStatusVariant = (status) => {
+  const variants = {
+    confirmed: 'success',
+    ticketed: 'success',
+    pending: 'warning',
+    cancelled: 'error',
+    voided: 'error',
+    'refund-requested': 'warning',
+    'refund-approved': 'success',
+    'refund-rejected': 'error',
+    'in-process': 'warning'
+  };
+  return variants[status?.toLowerCase()] || 'default';
+};

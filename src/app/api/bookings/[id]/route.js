@@ -1,49 +1,72 @@
 import { NextResponse } from 'next/server';
-import { generateFlights, generateBooking } from '@/lib/data';
+import { generateFlights } from '@/lib/data';
 
 // Get booking by reference ID
 export async function GET(request, { params }) {
   try {
     const bookingId = params.id;
     
-    if (!bookingId) {
-      return NextResponse.json(
-        { error: 'Booking ID is required' },
-        { status: 400 }
-      );
-    }
+    // Generate some sample flight data
+    const flights = generateFlights();
+    const flight = flights[0]; // Use first flight as example
     
-    // In a real application, you would fetch the booking from a database
-    // For this demo, we'll generate a mock booking based on the ID
-    
-    // Generate a sample flight to use for the booking
-    const sampleFlights = generateFlights('JFK', 'LAX', '2023-07-15', '2023-07-22', 1);
-    const flight = sampleFlights[0];
-    
-    // Create sample passenger data
+    // Sample passenger data
     const passengers = [
       {
         title: 'Mr',
         firstName: 'John',
         lastName: 'Smith',
-        dob: '1985-04-12',
-        nationality: 'United States',
-        passportNumber: 'US123456',
+        type: 'ADT',
+        dob: '1990-01-01',
+        passport: 'P1234567',
         passportExpiry: '2028-06-15',
       }
     ];
     
-    // Generate booking with the flight and passenger data
-    const booking = generateBooking(flight, passengers);
-    
-    // Set the booking reference to match the requested ID
-    booking.bookingRef = bookingId;
-    
-    // Add contact information
-    booking.contactInfo = {
-      email: 'john.smith@example.com',
-      phone: '+1 (123) 456-7890',
-      address: '123 Main St, New York, NY 10001, USA'
+    // Generate booking data
+    const booking = {
+      id: bookingId,
+      pnr: 'ABC123',
+      refNo: 'FL' + bookingId,
+      bookingDate: new Date().toISOString(),
+      status: 'confirmed',
+      
+      // Flight details
+      airline: flight.airline,
+      flightNumber: flight.flightNumber,
+      origin: flight.origin,
+      destination: flight.destination,
+      departureDate: flight.departureDate,
+      departureTime: flight.departureTime,
+      arrivalDate: flight.arrivalDate,
+      arrivalTime: flight.arrivalTime,
+      duration: flight.duration,
+      class: 'Economy',
+      
+      // Passenger information
+      passengers,
+      customerName: `${passengers[0].firstName} ${passengers[0].lastName}`,
+      
+      // Contact information
+      contactInfo: {
+        email: 'john.smith@example.com',
+        phone: '+1 (123) 456-7890',
+        address: '123 Main St, New York, NY 10001, USA'
+      },
+      
+      // Payment information
+      paymentInfo: {
+        total: 899.99,
+        currency: 'USD',
+        breakdown: {
+          baseFare: 750.00,
+          taxes: 99.99,
+          fees: 50.00
+        },
+        paymentMethod: 'Credit Card',
+        paymentStatus: 'Paid',
+        transactionId: 'TXN' + Math.random().toString(36).substr(2, 9)
+      }
     };
     
     return NextResponse.json(booking);
@@ -59,29 +82,10 @@ export async function GET(request, { params }) {
 // Update booking
 export async function PUT(request, { params }) {
   try {
-    const bookingId = params.id;
     const body = await request.json();
-    
-    if (!bookingId) {
-      return NextResponse.json(
-        { error: 'Booking ID is required' },
-        { status: 400 }
-      );
-    }
-    
-    // In a real application, you would update the booking in a database
-    // For this demo, we'll just return the updated booking data
-    
-    // Merge the request body with some default booking data
-    const updatedBooking = {
-      bookingRef: bookingId,
-      ...body,
-      updatedAt: new Date().toISOString()
-    };
-    
-    return NextResponse.json(updatedBooking);
+    // Update logic would go here
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error updating booking:', error);
     return NextResponse.json(
       { error: 'Failed to update booking' },
       { status: 500 }
@@ -92,25 +96,9 @@ export async function PUT(request, { params }) {
 // Cancel booking
 export async function DELETE(request, { params }) {
   try {
-    const bookingId = params.id;
-    
-    if (!bookingId) {
-      return NextResponse.json(
-        { error: 'Booking ID is required' },
-        { status: 400 }
-      );
-    }
-    
-    // In a real application, you would mark the booking as cancelled in a database
-    // For this demo, we'll just return a success message
-    
-    return NextResponse.json({
-      success: true,
-      message: `Booking ${bookingId} has been cancelled successfully`,
-      cancellationTime: new Date().toISOString()
-    });
+    // Cancellation logic would go here
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error cancelling booking:', error);
     return NextResponse.json(
       { error: 'Failed to cancel booking' },
       { status: 500 }
