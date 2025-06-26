@@ -1,294 +1,188 @@
+'use client';
 import React, { useState } from 'react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectOption } from '@/components/ui/select';
-import { FormField, FormLabel, FormMessage } from '@/components/ui/form';
-import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const PassengerForm = ({ passengerInfo, contactInfo, onPassengerInfoChange, onContactInfoChange }) => {
-  const [currentPassenger, setCurrentPassenger] = useState(0);
-  
-  const handlePassengerChange = (field, value) => {
-    onPassengerInfoChange(currentPassenger, field, value);
-  };
-  
-  const handleContactChange = (field, value) => {
-    onContactInfoChange(field, value);
-  };
-  
-  const validateEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(email);
-  };
-  
-  const validatePhone = (phone) => {
-    // Basic validation - would be more complex in a real app
-    return phone.length >= 5;
-  };
-  
-  // Error states
-  const [errors, setErrors] = useState({
-    firstName: false,
-    lastName: false,
-    dob: false,
-    nationality: false,
-    passportNumber: false,
-    passportExpiry: false,
-    email: false,
-    phone: false
-  });
-  
-  const handleBlur = (field, value) => {
-    let hasError = false;
-    
-    switch (field) {
-      case 'firstName':
-      case 'lastName':
-        hasError = !value || value.trim() === '';
-        break;
-      case 'dob':
-        hasError = !value;
-        break;
-      case 'nationality':
-        hasError = !value || value.trim() === '';
-        break;
-      case 'passportNumber':
-        hasError = !value || value.length < 5;
-        break;
-      case 'passportExpiry':
-        hasError = !value;
-        break;
-      case 'email':
-        hasError = !validateEmail(value);
-        break;
-      case 'phone':
-        hasError = !validatePhone(value);
-        break;
-      default:
-        break;
+// Add a list of country codes
+const COUNTRY_CODES = [
+  { code: '254', label: 'Kenya (+254)' },
+  { code: '33', label: 'France (+33)' },
+  { code: '1', label: 'USA/Canada (+1)' },
+  { code: '44', label: 'UK (+44)' },
+  { code: '234', label: 'Nigeria (+234)' },
+  { code: '91', label: 'India (+91)' },
+  { code: '49', label: 'Germany (+49)' },
+  { code: '81', label: 'Japan (+81)' },
+  { code: '61', label: 'Australia (+61)' },
+  { code: '27', label: 'South Africa (+27)' },
+  // Add more as needed
+];
+
+const PassengerForm = ({ flight, onSubmit, buttonLabel = 'Confirm & Book' }) => {
+  const [travelers, setTravelers] = useState([
+    {
+      id: '1',
+      dateOfBirth: '',
+      name: { firstName: '', lastName: '' },
+      gender: '',
+      contact: { emailAddress: '', phones: [{ deviceType: 'MOBILE', countryCallingCode: '', number: '' }] },
+      documents: [{ documentType: 'PASSPORT', number: '', expiryDate: '', issuanceCountry: '', nationality: '', holder: true }]
     }
-    
-    setErrors(prev => ({ ...prev, [field]: hasError }));
+  ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const validateTraveler = (traveler) => {
+    const errs = {};
+    // Validate country calling code
+    const code = traveler.contact.phones[0].countryCallingCode;
+    if (!code || !/^[0-9]{1,4}$/.test(code)) {
+      errs.countryCallingCode = 'Country calling code must be 1–4 digits, e.g. 33 for France, 254 for Kenya.';
+    }
+    // You can add more validations here if needed
+    return errs;
+  };
+
+  const handleTravelerChange = (index, field, value) => {
+    const updatedTravelers = [...travelers];
+    const fieldParts = field.split('.');
+    let current = updatedTravelers[index];
+    for (let i = 0; i < fieldParts.length - 1; i++) {
+      current = current[fieldParts[i]];
+    }
+    current[fieldParts[fieldParts.length - 1]] = value;
+    setTravelers(updatedTravelers);
+    // Validate on change
+    const newErrors = { ...errors };
+    newErrors[index] = validateTraveler(updatedTravelers[index]);
+    setErrors(newErrors);
   };
   
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    // Validate all travelers
+    const newErrors = {};
+    travelers.forEach((traveler, idx) => {
+      newErrors[idx] = validateTraveler(traveler);
+    });
+    setErrors(newErrors);
+    // If any errors, prevent submit
+    const hasError = Object.values(newErrors).some(errObj => Object.keys(errObj).length > 0);
+    if (hasError) {
+      setIsSubmitting(false);
+      return;
+    }
+    onSubmit({ travelers });
+    // In a real scenario, you might want to handle the response
+    // and only set isSubmitting to false on success/error
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Passenger Information */}
-      {passengerInfo.map((passenger, index) => (
-        <div key={index} style={{ display: index === currentPassenger ? 'block' : 'none' }}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Passenger {index + 1} {index === 0 ? '(Primary)' : ''}
-            </h3>
-            
-            {passengerInfo.length > 1 && (
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPassenger(prev => Math.max(0, prev - 1))}
-                  disabled={currentPassenger === 0}
-                  className="px-3 py-1 text-sm rounded-md border border-gray-300 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPassenger(prev => Math.min(passengerInfo.length - 1, prev + 1))}
-                  disabled={currentPassenger === passengerInfo.length - 1}
-                  className="px-3 py-1 text-sm rounded-md border border-gray-300 disabled:opacity-50"
-                >
-                  Next
-                </button>
+    <form onSubmit={handleSubmit}>
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle>Passenger Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {travelers.map((traveler, index) => (
+            <div key={index} className="p-4 border rounded-lg space-y-4">
+              <h3 className="font-semibold text-lg">Traveler {index + 1}</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor={`firstName-${index}`}>First Name</Label>
+                  <Input id={`firstName-${index}`} value={traveler.name.firstName} onChange={(e) => handleTravelerChange(index, 'name.firstName', e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor={`lastName-${index}`}>Last Name</Label>
+                  <Input id={`lastName-${index}`} value={traveler.name.lastName} onChange={(e) => handleTravelerChange(index, 'name.lastName', e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor={`dob-${index}`}>Date of Birth</Label>
+                  <Input
+                    id={`dob-${index}`}
+                    type="date"
+                    value={traveler.dateOfBirth}
+                    onChange={(e) => handleTravelerChange(index, 'dateOfBirth', e.target.value)}
+                    required
+                    max={new Date().toISOString().split("T")[0]}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`gender-${index}`}>Gender</Label>
+                  <Select onValueChange={(value) => handleTravelerChange(index, 'gender', value)} required>
+                    <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MALE">Male</SelectItem>
+                      <SelectItem value="FEMALE">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <FormField>
-              <FormLabel>Title</FormLabel>
-              <Select
-                value={passenger.title}
-                onChange={(e) => handlePassengerChange('title', e.target.value)}
-                required
-              >
-                <SelectOption value="">Select Title</SelectOption>
-                <SelectOption value="Mr">Mr</SelectOption>
-                <SelectOption value="Mrs">Mrs</SelectOption>
-                <SelectOption value="Ms">Ms</SelectOption>
-                <SelectOption value="Dr">Dr</SelectOption>
-              </Select>
-            </FormField>
-            
-            <FormField>
-              <FormLabel>Gender</FormLabel>
-              <Select
-                value={passenger.gender}
-                onChange={(e) => handlePassengerChange('gender', e.target.value)}
-              >
-                <SelectOption value="">Select Gender</SelectOption>
-                <SelectOption value="male">Male</SelectOption>
-                <SelectOption value="female">Female</SelectOption>
-                <SelectOption value="other">Other</SelectOption>
-              </Select>
-            </FormField>
-            
-            <FormField>
-              <FormLabel>First Name (as in passport)</FormLabel>
-              <Input
-                value={passenger.firstName || ''}
-                onChange={(e) => handlePassengerChange('firstName', e.target.value)}
-                onBlur={() => handleBlur('firstName', passenger.firstName)}
-                placeholder="Enter first name"
-                required
-              />
-              {errors.firstName && (
-                <FormMessage>First name is required</FormMessage>
-              )}
-            </FormField>
-            
-            <FormField>
-              <FormLabel>Last Name (as in passport)</FormLabel>
-              <Input
-                value={passenger.lastName || ''}
-                onChange={(e) => handlePassengerChange('lastName', e.target.value)}
-                onBlur={() => handleBlur('lastName', passenger.lastName)}
-                placeholder="Enter last name"
-                required
-              />
-              {errors.lastName && (
-                <FormMessage>Last name is required</FormMessage>
-              )}
-            </FormField>
-            
-            <FormField>
-              <FormLabel>Date of Birth</FormLabel>
-              <Input
-                type="date"
-                value={passenger.dob || ''}
-                onChange={(e) => handlePassengerChange('dob', e.target.value)}
-                onBlur={() => handleBlur('dob', passenger.dob)}
-                max={new Date().toISOString().split('T')[0]}
-                required
-              />
-              {errors.dob && (
-                <FormMessage>Date of birth is required</FormMessage>
-              )}
-            </FormField>
-            
-            <FormField>
-              <FormLabel>Nationality</FormLabel>
-              <Input
-                value={passenger.nationality || ''}
-                onChange={(e) => handlePassengerChange('nationality', e.target.value)}
-                onBlur={() => handleBlur('nationality', passenger.nationality)}
-                placeholder="Enter nationality"
-                required
-              />
-              {errors.nationality && (
-                <FormMessage>Nationality is required</FormMessage>
-              )}
-            </FormField>
-            
-            <FormField>
-              <FormLabel>Passport Number</FormLabel>
-              <Input
-                value={passenger.passportNumber || ''}
-                onChange={(e) => handlePassengerChange('passportNumber', e.target.value)}
-                onBlur={() => handleBlur('passportNumber', passenger.passportNumber)}
-                placeholder="Enter passport number"
-              />
-              {errors.passportNumber && (
-                <FormMessage>Valid passport number is required</FormMessage>
-              )}
-            </FormField>
-            
-            <FormField>
-              <FormLabel>Passport Expiry Date</FormLabel>
-              <Input
-                type="date"
-                value={passenger.passportExpiry || ''}
-                onChange={(e) => handlePassengerChange('passportExpiry', e.target.value)}
-                onBlur={() => handleBlur('passportExpiry', passenger.passportExpiry)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-              {errors.passportExpiry && (
-                <FormMessage>Valid passport expiry date is required</FormMessage>
-              )}
-            </FormField>
-          </div>
-        </div>
-      ))}
-      
-      {/* Pagination indicators */}
-      {passengerInfo.length > 1 && (
-        <div className="flex justify-center space-x-2 mb-6">
-          {passengerInfo.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => setCurrentPassenger(index)}
-              className={`w-3 h-3 rounded-full ${
-                index === currentPassenger ? 'bg-primary' : 'bg-gray-300'
-              }`}
-              aria-label={`Go to passenger ${index + 1}`}
-            />
+
+              <h4 className="font-semibold pt-4 border-t mt-4">Contact Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor={`email-${index}`}>Email Address</Label>
+                  <Input id={`email-${index}`} type="email" value={traveler.contact.emailAddress} onChange={(e) => handleTravelerChange(index, 'contact.emailAddress', e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor={`phone-${index}`}>Phone Number</Label>
+                  <Input id={`phone-${index}`} type="tel" value={traveler.contact.phones[0].number} onChange={(e) => handleTravelerChange(index, 'contact.phones.0.number', e.target.value)} required />
+                </div>
+                {/* Country Calling Code Dropdown - always visible */}
+                <div>
+                  <Label htmlFor={`countryCallingCode-${index}`}>Country Calling Code</Label>
+                  <select
+                    id={`countryCallingCode-${index}`}
+                    value={traveler.contact.phones[0].countryCallingCode}
+                    onChange={e => handleTravelerChange(index, 'contact.phones.0.countryCallingCode', e.target.value)}
+                    required
+                    className="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select country code</option>
+                    {COUNTRY_CODES.map(opt => (
+                      <option key={opt.code} value={opt.code}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {errors[index]?.countryCallingCode && (
+                    <div className="text-red-600 text-xs mt-1">{errors[index].countryCallingCode}</div>
+                  )}
+                </div>
+              </div>
+
+              <h4 className="font-semibold pt-4 border-t mt-4">Passport Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor={`passport-${index}`}>Passport Number</Label>
+                  <Input id={`passport-${index}`} value={traveler.documents[0].number} onChange={(e) => handleTravelerChange(index, 'documents.0.number', e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor={`expiry-${index}`}>Expiry Date</Label>
+                  <Input id={`expiry-${index}`} type="date" value={traveler.documents[0].expiryDate} onChange={(e) => handleTravelerChange(index, 'documents.0.expiryDate', e.target.value)} required />
+                </div>
+                <div>
+                  <Label htmlFor={`issuance-${index}`}>Issuance Country (2-letter code)</Label>
+                  <Input id={`issuance-${index}`} value={traveler.documents[0].issuanceCountry} onChange={(e) => handleTravelerChange(index, 'documents.0.issuanceCountry', e.target.value.toUpperCase())} maxLength="2" required />
+                </div>
+                <div>
+                  <Label htmlFor={`nationality-${index}`}>Nationality (2-letter code)</Label>
+                  <Input id={`nationality-${index}`} value={traveler.documents[0].nationality} onChange={(e) => handleTravelerChange(index, 'documents.0.nationality', e.target.value.toUpperCase())} maxLength="2" required />
+                </div>
+              </div>
+            </div>
           ))}
-        </div>
-      )}
-      
-      <Separator className="my-6" />
-      
-      {/* Contact Information */}
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField>
-            <FormLabel>Email Address</FormLabel>
-            <Input
-              type="email"
-              value={contactInfo.email || ''}
-              onChange={(e) => handleContactChange('email', e.target.value)}
-              onBlur={() => handleBlur('email', contactInfo.email)}
-              placeholder="Enter email address"
-              required
-            />
-            {errors.email && (
-              <FormMessage>Valid email address is required</FormMessage>
-            )}
-          </FormField>
-          
-          <FormField>
-            <FormLabel>Phone Number</FormLabel>
-            <Input
-              type="tel"
-              value={contactInfo.phone || ''}
-              onChange={(e) => handleContactChange('phone', e.target.value)}
-              onBlur={() => handleBlur('phone', contactInfo.phone)}
-              placeholder="Enter phone number"
-              required
-            />
-            {errors.phone && (
-              <FormMessage>Valid phone number is required</FormMessage>
-            )}
-          </FormField>
-          
-          <FormField className="md:col-span-2">
-            <FormLabel>Address (Optional)</FormLabel>
-            <Input
-              value={contactInfo.address || ''}
-              onChange={(e) => handleContactChange('address', e.target.value)}
-              placeholder="Enter address"
-            />
-          </FormField>
-        </div>
-        
-        <div className="mt-4 text-sm text-gray-500">
-          <p>
-            <span className="font-medium">Note:</span> Booking confirmation and updates will be sent to this email address and phone number.
-          </p>
-        </div>
-      </div>
-    </div>
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? (buttonLabel === 'Confirm & Book' ? 'Submitting Booking...' : 'Processing...') : buttonLabel}
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
   );
 };
 

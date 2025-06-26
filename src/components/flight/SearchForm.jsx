@@ -2,18 +2,17 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectOption } from '@/components/ui/select';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/datepicker';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-
-import { AIRPORTS, CABIN_CLASSES, TRIP_TYPES } from '@/lib/constants';
+import { CABIN_CLASSES, TRIP_TYPES } from '@/lib/constants';
 import useStore from '@/lib/store';
+import AirportSearch from './AirportSearch';
 
 const SearchForm = () => {
   const router = useRouter();
-  const { searchParams, setSearchParams, searchFlights } = useStore();
+  const { searchParams, setSearchParams } = useStore();
   
   const [tripType, setTripType] = useState(searchParams.tripType || 'round_trip');
   const [origin, setOrigin] = useState(searchParams.origin || '');
@@ -24,21 +23,15 @@ const SearchForm = () => {
   const [children, setChildren] = useState(searchParams.passengers?.children || 0);
   const [infants, setInfants] = useState(searchParams.passengers?.infants || 0);
   const [cabinClass, setCabinClass] = useState(searchParams.cabinClass || 'economy');
-  
-  // Suggestions for origin and destination
-  const [originSuggestions, setOriginSuggestions] = useState([]);
-  const [destinationSuggestions, setDestinationSuggestions] = useState([]);
-  
+
   // Handle trip type change
   const handleTripTypeChange = (value) => {
     setTripType(value);
   };
-  
+
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Update search params in store
     setSearchParams({
       tripType,
       origin,
@@ -52,55 +45,17 @@ const SearchForm = () => {
       },
       cabinClass
     });
-    
-    // Navigate to search results page
     router.push('/flights/flight_search');
   };
-  
-  // Filter airport suggestions based on input
-  const handleOriginChange = (e) => {
-    const value = e.target.value;
-    setOrigin(value);
-    
-    if (value.length > 1) {
-      const filtered = AIRPORTS.filter(airport => 
-        airport.name.toLowerCase().includes(value.toLowerCase()) || 
-        airport.city.toLowerCase().includes(value.toLowerCase()) || 
-        airport.code.toLowerCase().includes(value.toLowerCase())
-      );
-      setOriginSuggestions(filtered.slice(0, 5));
-    } else {
-      setOriginSuggestions([]);
-    }
+
+  // Handle airport/city selection
+  const handleOriginSelect = (airport) => {
+    setOrigin(`${airport.name} (${airport.iataCode})`);
   };
-  
-  const handleDestinationChange = (e) => {
-    const value = e.target.value;
-    setDestination(value);
-    
-    if (value.length > 1) {
-      const filtered = AIRPORTS.filter(airport => 
-        airport.name.toLowerCase().includes(value.toLowerCase()) || 
-        airport.city.toLowerCase().includes(value.toLowerCase()) || 
-        airport.code.toLowerCase().includes(value.toLowerCase())
-      );
-      setDestinationSuggestions(filtered.slice(0, 5));
-    } else {
-      setDestinationSuggestions([]);
-    }
+  const handleDestinationSelect = (airport) => {
+    setDestination(`${airport.name} (${airport.iataCode})`);
   };
-  
-  // Select airport from suggestions
-  const selectOrigin = (airport) => {
-    setOrigin(`${airport.city} (${airport.code})`);
-    setOriginSuggestions([]);
-  };
-  
-  const selectDestination = (airport) => {
-    setDestination(`${airport.city} (${airport.code})`);
-    setDestinationSuggestions([]);
-  };
-  
+
   return (
     <Card className="bg-white shadow-md rounded-md">
       <CardContent className="p-6">
@@ -112,60 +67,17 @@ const SearchForm = () => {
               </TabsTrigger>
             ))}
           </TabsList>
-          
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="relative">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
-                <Input
-                  type="text"
-                  placeholder="City or Airport"
-                  value={origin}
-                  onChange={handleOriginChange}
-                  required
-                />
-                {originSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-auto">
-                    {originSuggestions.map((airport) => (
-                      <div
-                        key={airport.code}
-                        className="p-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => selectOrigin(airport)}
-                      >
-                        <div className="font-medium">{airport.city} ({airport.code})</div>
-                        <div className="text-xs text-gray-500">{airport.name}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <AirportSearch onSelect={handleOriginSelect} placeholder="City or Airport" />
               </div>
-              
-              <div className="relative">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
-                <Input
-                  type="text"
-                  placeholder="City or Airport"
-                  value={destination}
-                  onChange={handleDestinationChange}
-                  required
-                />
-                {destinationSuggestions.length > 0 && (
-                  <div className="absolute z-10 w-full bg-white shadow-lg rounded-md mt-1 max-h-60 overflow-auto">
-                    {destinationSuggestions.map((airport) => (
-                      <div
-                        key={airport.code}
-                        className="p-2 hover:bg-gray-100 cursor-pointer"
-                        onClick={() => selectDestination(airport)}
-                      >
-                        <div className="font-medium">{airport.city} ({airport.code})</div>
-                        <div className="text-xs text-gray-500">{airport.name}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <AirportSearch onSelect={handleDestinationSelect} placeholder="City or Airport" />
               </div>
             </div>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Departure Date</label>
@@ -177,7 +89,6 @@ const SearchForm = () => {
                   placeholder="Select departure date"
                 />
               </div>
-              
               {tripType === 'round_trip' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Return Date</label>
@@ -191,51 +102,60 @@ const SearchForm = () => {
                 </div>
               )}
             </div>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Passengers</label>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Adults</label>
-                    <Select value={adults} onChange={(e) => setAdults(parseInt(e.target.value))}>
-                      {[...Array(9)].map((_, i) => (
-                        <SelectOption key={i} value={i + 1}>{i + 1}</SelectOption>
-                      ))}
-                    </Select>
+                    <input
+                      type="number"
+                      min={1}
+                      max={9}
+                      value={adults}
+                      onChange={(e) => setAdults(Number(e.target.value))}
+                      className="w-full border rounded p-1"
+                    />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Children</label>
-                    <Select value={children} onChange={(e) => setChildren(parseInt(e.target.value))}>
-                      {[...Array(10)].map((_, i) => (
-                        <SelectOption key={i} value={i}>{i}</SelectOption>
-                      ))}
-                    </Select>
+                    <input
+                      type="number"
+                      min={0}
+                      max={9}
+                      value={children}
+                      onChange={(e) => setChildren(Number(e.target.value))}
+                      className="w-full border rounded p-1"
+                    />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Infants</label>
-                    <Select value={infants} onChange={(e) => setInfants(parseInt(e.target.value))}>
-                      {[...Array(Math.min(adults, 5) + 1)].map((_, i) => (
-                        <SelectOption key={i} value={i}>{i}</SelectOption>
-                      ))}
-                    </Select>
+                    <input
+                      type="number"
+                      min={0}
+                      max={9}
+                      value={infants}
+                      onChange={(e) => setInfants(Number(e.target.value))}
+                      className="w-full border rounded p-1"
+                    />
                   </div>
                 </div>
               </div>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Cabin Class</label>
-                <Select value={cabinClass} onChange={(e) => setCabinClass(e.target.value)}>
-                  {CABIN_CLASSES.map((cabinClass) => (
-                    <SelectOption key={cabinClass.value} value={cabinClass.value}>
-                      {cabinClass.label}
-                    </SelectOption>
-                  ))}
+                <Select value={cabinClass} onValueChange={setCabinClass}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select cabin class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CABIN_CLASSES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
             </div>
-            
-            <Button type="submit" variant="primary" className="w-full py-3">
+            <Button type="submit" className="w-full" variant="primary">
               Search Flights
             </Button>
           </form>

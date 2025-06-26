@@ -12,18 +12,23 @@ const FlightCard = ({ flight }) => {
   const { setSelectedFlight } = useStore();
   
   const handleViewDetails = () => {
-    setSelectedFlight(flight);
-    router.push(`/flights/flight_details/${flight.id}`);
+    router.push(`/flights/flight_details/${flight.clientId}`);
   };
   
+  const itinerary = flight.itineraries[0];
+  const segments = itinerary.segments;
+  const firstSegment = segments[0];
+  const lastSegment = segments[segments.length - 1];
+  const stops = segments.length - 1;
+
   // Determine flight type label
   const getFlightTypeLabel = () => {
-    if (flight.stops === 0) {
+    if (stops === 0) {
       return <Badge variant="default">Direct</Badge>;
-    } else if (flight.stops === 1) {
-      return <Badge variant="secondary">{flight.stops} Stop</Badge>;
+    } else if (stops === 1) {
+      return <Badge variant="secondary">{stops} Stop</Badge>;
     } else {
-      return <Badge variant="secondary">{flight.stops} Stops</Badge>;
+      return <Badge variant="secondary">{stops} Stops</Badge>;
     }
   };
   
@@ -33,8 +38,8 @@ const FlightCard = ({ flight }) => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Airline Info */}
           <div className="md:col-span-2">
-            <div className="text-lg font-semibold mb-1">{flight.airline}</div>
-            <div className="text-sm text-gray-500">{flight.flightNumber}</div>
+            <div className="text-lg font-semibold mb-1">{firstSegment.carrierCode}</div>
+            <div className="text-sm text-gray-500">{firstSegment.number}</div>
             {getFlightTypeLabel()}
           </div>
           
@@ -42,41 +47,41 @@ const FlightCard = ({ flight }) => {
           <div className="md:col-span-5">
             <div className="flex justify-between items-center">
               <div className="text-center">
-                <div className="text-xl font-bold">{formatTime(flight.departureTime)}</div>
-                <div className="text-sm text-gray-600">{flight.from}</div>
+                <div className="text-xl font-bold">{formatTime(firstSegment.departure.at)}</div>
+                <div className="text-sm text-gray-600">{firstSegment.departure.iataCode}</div>
               </div>
               
               <div className="flex flex-col items-center mx-4">
                 <div className="text-xs text-gray-500 mb-1">
-                  {formatDuration(flight.duration)}
+                  {formatDuration(itinerary.duration)}
                 </div>
                 <div className="relative w-20 h-0.5 bg-gray-300">
                   <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full bg-primary"></div>
-                  {flight.stops > 0 && flight.layovers.map((layover, idx) => (
+                  {stops > 0 && segments.slice(0, -1).map((segment, idx) => (
                     <div key={idx} className="absolute top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full bg-gray-500" style={{ 
-                      left: `${((idx + 1) / (flight.stops + 1)) * 100}%` 
+                      left: `${((idx + 1) / (stops + 1)) * 100}%` 
                     }}></div>
                   ))}
                   <div className="absolute right-0 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full bg-primary"></div>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {flight.stops === 0 ? 'Direct' : `${flight.stops} ${flight.stops === 1 ? 'stop' : 'stops'}`}
+                  {stops === 0 ? 'Direct' : `${stops} ${stops === 1 ? 'stop' : 'stops'}`}
                 </div>
               </div>
               
               <div className="text-center">
-                <div className="text-xl font-bold">{formatTime(flight.arrivalTime)}</div>
-                <div className="text-sm text-gray-600">{flight.to}</div>
+                <div className="text-xl font-bold">{formatTime(lastSegment.arrival.at)}</div>
+                <div className="text-sm text-gray-600">{lastSegment.arrival.iataCode}</div>
               </div>
             </div>
             
-            {flight.stops > 0 && (
+            {stops > 0 && (
               <div className="mt-2 text-xs text-gray-500">
                 <span>Stops: </span>
-                {flight.layovers.map((layover, idx) => (
+                {segments.slice(0, -1).map((segment, idx) => (
                   <span key={idx}>
-                    {layover.airport}
-                    {idx < flight.layovers.length - 1 ? ', ' : ''}
+                    {segment.arrival.iataCode}
+                    {idx < stops - 1 ? ', ' : ''}
                   </span>
                 ))}
               </div>
@@ -84,29 +89,33 @@ const FlightCard = ({ flight }) => {
           </div>
           
           {/* Return Flight (if applicable) */}
-          {flight.returnFlight && (
-            <div className="md:col-span-3">
-              <div className="flex flex-col">
-                <div className="text-xs text-gray-500 mb-1">Return Flight</div>
-                <div className="flex items-center">
-                  <div className="text-sm font-semibold">
-                    {formatTime(flight.returnFlight.departureTime)} - {formatTime(flight.returnFlight.arrivalTime)}
+          {flight.itineraries[1] && (() => {
+            const returnItinerary = flight.itineraries[1];
+            const returnStops = returnItinerary.segments.length - 1;
+            return (
+              <div className="md:col-span-3">
+                <div className="flex flex-col">
+                  <div className="text-xs text-gray-500 mb-1">Return Flight</div>
+                  <div className="flex items-center">
+                    <div className="text-sm font-semibold">
+                      {formatTime(returnItinerary.segments[0].departure.at)} - {formatTime(returnItinerary.segments[returnItinerary.segments.length - 1].arrival.at)}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {formatDuration(returnItinerary.duration)} • 
+                    {returnStops === 0 
+                      ? ' Direct' 
+                      : ` ${returnStops} ${returnStops === 1 ? 'stop' : 'stops'}`}
                   </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {formatDuration(flight.returnFlight.duration)} • 
-                  {flight.returnFlight.stops === 0 
-                    ? ' Direct' 
-                    : ` ${flight.returnFlight.stops} ${flight.returnFlight.stops === 1 ? 'stop' : 'stops'}`}
-                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
           
           {/* Price and Book Button */}
           <div className="md:col-span-2 flex flex-col justify-between">
             <div className="text-right">
-              <div className="text-2xl font-bold text-primary">{formatPrice(flight.price)}</div>
+              <div className="text-2xl font-bold text-primary">{formatPrice(flight.price.total)}</div>
               <div className="text-xs text-gray-500">per passenger</div>
             </div>
             
@@ -145,7 +154,7 @@ const FlightCard = ({ flight }) => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
               </svg>
-              <span>Aircraft: {flight.aircraft}</span>
+              <span>Aircraft: {firstSegment.aircraft.code}</span>
             </div>
           </div>
         </div>

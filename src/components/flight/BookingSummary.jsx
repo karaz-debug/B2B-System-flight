@@ -4,22 +4,24 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatDate, formatTime, formatDuration, formatPrice } from '@/lib/utils';
 
-const BookingSummary = ({ flight }) => {
+const BookingSummary = ({ flight, selectedFare }) => {
   if (!flight) return null;
   
-  // Calculate total passenger count
-  const totalPassengers = 1; // Simplified for demo, would normally come from props
+  // Use the price from the selected fare if available, otherwise use the flight's default price.
+  const displayPrice = selectedFare ? selectedFare.price : flight.price.total;
+  const currency = flight.price.currency;
   
-  // Calculate fare breakdown
-  const baseFare = flight.price;
-  const taxes = Math.round(baseFare * 0.12);
-  const fees = Math.round(baseFare * 0.08);
-  const totalPrice = baseFare + taxes + fees;
+  // These are approximations for display only if a selectedFare is present.
+  const baseFare = selectedFare ? (parseFloat(displayPrice) / 1.2).toFixed(2) : flight.price.base; 
+  const taxes = (parseFloat(displayPrice) - parseFloat(baseFare)).toFixed(2);
   
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Booking Summary</CardTitle>
+        <div className="flex justify-between items-baseline">
+            <CardTitle className="text-lg font-semibold">Booking Summary</CardTitle>
+            {selectedFare && <Badge variant="default">{selectedFare.name}</Badge>}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Flight Info */}
@@ -59,12 +61,14 @@ const BookingSummary = ({ flight }) => {
             <div className="mt-1">
               {flight.stops === 0 ? 'Direct Flight' : (
                 <span>
-                  Stops: {flight.layovers.map((layover, idx) => (
-                    <span key={idx}>
-                      {layover.airport}
-                      {idx < flight.layovers.length - 1 ? ', ' : ''}
-                    </span>
-                  ))}
+                  Stops: {Array.isArray(flight.layovers) && flight.layovers.length > 0 ? (
+                    flight.layovers.map((layover, idx) => (
+                      <span key={idx}>
+                        {layover.airport}
+                        {idx < flight.layovers.length - 1 ? ', ' : ''}
+                      </span>
+                    ))
+                  ) : 'N/A'}
                 </span>
               )}
             </div>
@@ -132,16 +136,12 @@ const BookingSummary = ({ flight }) => {
           
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Base Fare ({totalPassengers} {totalPassengers === 1 ? 'Passenger' : 'Passengers'})</span>
-              <span>{formatPrice(baseFare)}</span>
+              <span className="text-gray-600">Base Fare</span>
+              <span>{formatPrice(baseFare, currency)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Taxes</span>
-              <span>{formatPrice(taxes)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Fees & Surcharges</span>
-              <span>{formatPrice(fees)}</span>
+              <span className="text-gray-600">Taxes & Fees</span>
+              <span>{formatPrice(taxes, currency)}</span>
             </div>
           </div>
           
@@ -149,7 +149,7 @@ const BookingSummary = ({ flight }) => {
           
           <div className="flex justify-between font-semibold">
             <span>Total Price</span>
-            <span className="text-primary">{formatPrice(totalPrice)}</span>
+            <span className="text-primary">{formatPrice(displayPrice, currency)}</span>
           </div>
         </div>
         

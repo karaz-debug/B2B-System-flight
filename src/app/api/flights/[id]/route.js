@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateFlights } from '@/lib/data';
+import amadeusService from '@/lib/services/amadeusService';
+import amadeus from '@/lib/services/amadeusService';
 
 // This is a mock API endpoint that simulates fetching flight by ID
 export async function GET(request, { params }) {
@@ -53,5 +55,25 @@ export async function GET(request, { params }) {
       { error: 'Failed to fetch flight details' },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request, { params }) {
+  const { flightOffer } = await request.json();
+  
+  if (!flightOffer) {
+    return NextResponse.json({ message: 'Missing flight offer data' }, { status: 400 });
+  }
+
+  try {
+    const confirmedPriceData = await amadeus.getFlightPrice({
+      data: {
+        type: 'flight-offers-pricing',
+        flightOffers: [flightOffer],
+      },
+    });
+    return NextResponse.json(confirmedPriceData, { status: 200 });
+  } catch (error) {
+    return NextResponse.json({ message: 'Error confirming flight price', error: error.message }, { status: 500 });
   }
 }

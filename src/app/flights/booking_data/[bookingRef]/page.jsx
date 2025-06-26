@@ -2,19 +2,66 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import Header from '@/components/global/Header';
 import Footer from '@/components/global/Footer';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { formatDate, formatTime, formatDuration, formatPrice } from '@/lib/utils';
 import useStore from '@/lib/store';
+
+// A modern, timeline-style component for displaying a flight segment
+const SegmentDetail = ({ segment, dictionary, isLast }) => {
+  return (
+    <div className="relative pl-8 py-2">
+      {/* Vertical line connecting segments */}
+      {!isLast && <div className="absolute left-4 top-5 h-full w-0.5 bg-gray-200"></div>}
+      
+      {/* Dot on the timeline */}
+      <div className="absolute left-4 top-5 -ml-2 h-4 w-4 rounded-full bg-primary ring-4 ring-white dark:ring-gray-900"></div>
+      
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="font-bold text-lg">{formatTime(segment.departure.at)} - {segment.departure.iataCode}</p>
+          <p className="text-sm text-gray-500">{formatDate(segment.departure.at, 'eeee, MMM d')}</p>
+        </div>
+        <div className="text-center px-4">
+          <p className="text-sm font-semibold text-primary">{formatDuration(segment.duration)}</p>
+          <p className="text-xs text-gray-400">{segment.carrierCode} {segment.number}</p>
+        </div>
+        <div className="text-right">
+          <p className="font-bold text-lg">{formatTime(segment.arrival.at)} - {segment.arrival.iataCode}</p>
+          <p className="text-sm text-gray-500">{formatDate(segment.arrival.at, 'eeee, MMM d')}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Component to display a full itinerary (e.g., outbound or return)
+const ItineraryDetails = ({ itinerary, title, dictionary }) => (
+  <div className="mb-8">
+    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">{title}</h3>
+    <div className="space-y-4">
+      {itinerary.segments.map((segment, index) => (
+        <SegmentDetail 
+          key={segment.id} 
+          segment={segment}
+          dictionary={dictionary} 
+          isLast={index === itinerary.segments.length - 1} 
+        />
+      ))}
+    </div>
+  </div>
+);
 
 export default function BookingData() {
   const params = useParams();
   const router = useRouter();
-  const { getBookingByRef } = useStore();
+  const { getBookingByRef, currentBooking, selectedFare } = useStore();
   
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,26 +71,23 @@ export default function BookingData() {
       router.push('/agents/dashboard');
       return;
     }
-    
-    // Get booking details
+    if (currentBooking && currentBooking.data?.associatedRecords?.[0]?.reference === params.bookingRef) {
+      setBooking(currentBooking);
+      setLoading(false);
+      return;
+    }
     const bookingDetails = getBookingByRef(params.bookingRef);
-    
-    // Simulate API request delay
-    setTimeout(() => {
       if (bookingDetails) {
         setBooking(bookingDetails);
       }
       setLoading(false);
-    }, 1000);
-  }, [params.bookingRef, getBookingByRef, router]);
+  }, [params.bookingRef, getBookingByRef, router, currentBooking]);
   
   const downloadETicket = () => {
-    // In a real app, this would trigger a PDF download
-    alert('E-Ticket download functionality would be implemented here.');
+    window.print();
   };
   
   const sendEmailConfirmation = () => {
-    // In a real app, this would send an email confirmation
     alert('Email confirmation would be sent here.');
   };
   
@@ -51,24 +95,21 @@ export default function BookingData() {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        
         <main className="flex-grow bg-gray-50 p-6 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading booking details...</p>
           </div>
         </main>
-        
         <Footer />
       </div>
     );
   }
   
-  if (!booking) {
+  if (!booking || !booking.data) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
-        
         <main className="flex-grow bg-gray-50 p-6 flex items-center justify-center">
           <Card className="max-w-md w-full text-center p-6">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -83,18 +124,48 @@ export default function BookingData() {
             </Link>
           </Card>
         </main>
-        
         <Footer />
       </div>
     );
   }
+
+  const { data: bookingData, warnings, dictionaries } = booking;
+  const flightOffer = bookingData.flightOffers[0];
+  const pnr = bookingData.associatedRecords[0]?.reference;
+  const bookingDate = bookingData.associatedRecords[0]?.creationDate;
+  const issuingAgent = bookingData.contacts[0]?.companyName;
+  const dummyTicketNumber = `157-${pnr?.slice(0, 4)}-${Math.floor(100000 + Math.random() * 900000)}`;
+  
+  // Determine the price and fare name to display, prioritizing the user's selection
+  const displayFare = selectedFare || { 
+      name: flightOffer.travelerPricings[0].fareDetailsBySegment[0].brandedFare || 'STANDARD',
+      price: flightOffer.price.grandTotal 
+  };
+  const displayPrice = displayFare.price;
+  const currency = flightOffer.price.currency;
+  // Approximate the base fare and taxes if a custom fare was selected
+  const baseFare = selectedFare ? (parseFloat(displayPrice) / 1.2).toFixed(2) : flightOffer.price.base;
+  const taxes = (parseFloat(displayPrice) - parseFloat(baseFare)).toFixed(2);
   
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gray-100 print:bg-white">
+      <div className="print:hidden">
       <Header />
+      </div>
       
-      <main className="flex-grow bg-gray-50 p-4 md:p-6">
+      <main className="flex-grow p-4 md:p-6">
         <div className="max-w-5xl mx-auto">
+          <div className="print:hidden">
+            {warnings && warnings.length > 0 && (
+            <Alert variant="warning" className="mb-4">
+              <AlertDescription>
+                  {warnings.map((w, i) => (
+                  <div key={i}><b>{w.title}:</b> {w.detail}</div>
+                ))}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="mb-6">
             <Link href="/agents/dashboard" className="text-primary hover:text-primary-dark flex items-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -102,199 +173,143 @@ export default function BookingData() {
               </svg>
               Back to Dashboard
             </Link>
+            </div>
           </div>
           
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader className="bg-primary/5 border-b border-primary/10">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <CardTitle className="text-xl font-bold text-gray-900">Booking Confirmation</CardTitle>
-                  <div className="mt-2 md:mt-0 flex items-center space-x-2">
-                    <Badge variant="default">Confirmed</Badge>
-                    <span className="text-sm font-medium">Booking Ref: {booking.bookingRef}</span>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-green-800">Booking Successful</h3>
-                      <div className="mt-2 text-sm text-green-700">
-                        <p>Your booking has been confirmed. Below is your booking information.</p>
-                      </div>
+          <Card className="shadow-lg print:shadow-none">
+            <CardHeader className="bg-gray-50 print:bg-white border-b p-6">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between">
+                <div className="flex items-center mb-4 md:mb-0">
+                   <Image src="/assets/logo.svg" alt="Company Logo" width={40} height={40} className="mr-4" />
+                   <div>
+                     <CardTitle className="text-2xl font-bold text-gray-900">E-Ticket & Itinerary</CardTitle>
+                     <div className="flex items-center space-x-2">
+                        {issuingAgent && <p className="text-sm text-gray-500">Issued by: {issuingAgent}</p>}
+                        <Badge variant="outline">{displayFare.name}</Badge>
                     </div>
                   </div>
                 </div>
                 
-                {/* Flight Details */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Flight Details</h3>
-                  
-                  <div className="bg-gray-50 rounded-md p-4 mb-4">
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                      <div className="md:col-span-3">
-                        <div className="text-sm text-gray-500">Airline</div>
-                        <div className="font-medium">{booking.flight.airline}</div>
-                        <div className="text-sm text-gray-600">{booking.flight.flightNumber}</div>
-                      </div>
-                      
-                      <div className="md:col-span-3">
-                        <div className="text-sm text-gray-500">From</div>
-                        <div className="font-medium">{booking.flight.from}</div>
-                        <div className="text-sm text-gray-600">
-                          {formatDate(booking.flight.departureDate)} • {formatTime(booking.flight.departureTime)}
-                        </div>
-                      </div>
-                      
-                      <div className="md:col-span-3">
-                        <div className="text-sm text-gray-500">To</div>
-                        <div className="font-medium">{booking.flight.to}</div>
-                        <div className="text-sm text-gray-600">
-                          {formatDate(booking.flight.departureDate)} • {formatTime(booking.flight.arrivalTime)}
-                        </div>
-                      </div>
-                      
-                      <div className="md:col-span-3">
-                        <div className="text-sm text-gray-500">Duration</div>
-                        <div className="font-medium">{formatDuration(booking.flight.duration)}</div>
-                        <div className="text-sm text-gray-600">
-                          {booking.flight.stops === 0 
-                            ? 'Direct Flight' 
-                            : `${booking.flight.stops} ${booking.flight.stops === 1 ? 'Stop' : 'Stops'}`}
-                        </div>
-                      </div>
-                    </div>
+                <div className="text-left md:text-right">
+                  <div className="mb-2">
+                    <span className="text-sm text-gray-500 block">PNR</span>
+                    <p className="font-mono text-lg font-bold">{pnr}</p>
                   </div>
-                  
-                  {booking.flight.returnFlight && (
-                    <div className="bg-gray-50 rounded-md p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                        <div className="md:col-span-3">
-                          <div className="text-sm text-gray-500">Return Airline</div>
-                          <div className="font-medium">{booking.flight.airline}</div>
-                          <div className="text-sm text-gray-600">{booking.flight.returnFlight.flightNumber}</div>
-                        </div>
-                        
-                        <div className="md:col-span-3">
-                          <div className="text-sm text-gray-500">From</div>
-                          <div className="font-medium">{booking.flight.to}</div>
-                          <div className="text-sm text-gray-600">
-                            {formatDate(booking.flight.returnDate)} • {formatTime(booking.flight.returnFlight.departureTime)}
-                          </div>
-                        </div>
-                        
-                        <div className="md:col-span-3">
-                          <div className="text-sm text-gray-500">To</div>
-                          <div className="font-medium">{booking.flight.from}</div>
-                          <div className="text-sm text-gray-600">
-                            {formatDate(booking.flight.returnDate)} • {formatTime(booking.flight.returnFlight.arrivalTime)}
-                          </div>
-                        </div>
-                        
-                        <div className="md:col-span-3">
-                          <div className="text-sm text-gray-500">Duration</div>
-                          <div className="font-medium">{formatDuration(booking.flight.returnFlight.duration)}</div>
-                          <div className="text-sm text-gray-600">
-                            {booking.flight.returnFlight.stops === 0 
-                              ? 'Direct Flight' 
-                              : `${booking.flight.returnFlight.stops} ${booking.flight.returnFlight.stops === 1 ? 'Stop' : 'Stops'}`}
+                  <div>
+                    <span className="text-sm text-gray-500 block">Ticket Number</span>
+                    <p className="font-mono text-lg font-bold">{dummyTicketNumber}</p>
                           </div>
                         </div>
                       </div>
+              <div className="text-sm text-gray-500 mt-4">
+                 Booked on: {formatDate(bookingDate, 'eeee, MMM d, yyyy')}
                     </div>
-                  )}
-                </div>
-                
-                {/* Passenger Information */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Passenger Information</h3>
-                  
-                  <div className="overflow-x-auto">
+            </CardHeader>
+            <CardContent className="p-6">
+              {/* Itinerary */}
+              {flightOffer.itineraries.map((itinerary, index) => (
+                <ItineraryDetails
+                  key={index}
+                  itinerary={itinerary}
+                  title={index === 0 ? 'Outbound Journey' : 'Return Journey'}
+                  dictionary={dictionaries.locations}
+                />
+              ))}
+
+              <Separator className="my-8" />
+
+              {/* Passengers */}
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Passengers</h3>
+              <div className="overflow-x-auto border rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Name
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Type
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Seat
-                          </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Passport</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {booking.passengers.map((passenger, index) => (
-                          <tr key={index}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {passenger.title} {passenger.firstName} {passenger.lastName}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">Adult</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">Not Assigned</div>
-                            </td>
-                          </tr>
-                        ))}
+                    {bookingData.travelers.map((traveler, index) => (
+                      <tr key={traveler.id}>
+                        <td className="px-6 py-4 whitespace-nowrap font-medium">{traveler.name.firstName} {traveler.name.lastName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">{flightOffer.travelerPricings[index].travelerType}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">{traveler.documents[0].number}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-600">{traveler.contact.emailAddress}</td>
+                            </tr>
+                    ))}
                       </tbody>
                     </table>
-                  </div>
-                </div>
-                
-                {/* Payment Information */}
+              </div>
+
+              <Separator className="my-8" />
+
+              {/* Fare, Baggage & Rules */}
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Fare, Baggage & Rules</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Fare Breakdown */}
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Information</h3>
-                  
-                  <div className="bg-gray-50 rounded-md p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-sm text-gray-500">Payment Status</div>
-                        <div className="font-medium text-green-600">Confirmed</div>
-                        <div className="text-sm text-gray-600">
-                          {new Date(booking.payment.timestamp).toLocaleString()}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-sm text-gray-500">Payment Method</div>
-                        <div className="font-medium">Credit Card</div>
-                        <div className="text-sm text-gray-600">xxxx-xxxx-xxxx-1234</div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm text-gray-600">Base Fare:</span>
-                        <span className="text-sm">{formatPrice(booking.payment.basePrice)}</span>
-                      </div>
-                      <div className="flex justify-between mb-2">
-                        <span className="text-sm text-gray-600">Taxes & Fees:</span>
-                        <span className="text-sm">{formatPrice(booking.payment.taxes + booking.payment.fees)}</span>
-                      </div>
-                      <div className="flex justify-between font-medium">
-                        <span>Total:</span>
-                        <span>{formatPrice(booking.payment.totalPrice)}</span>
-                      </div>
-                    </div>
+                  <h4 className="font-semibold mb-2 text-gray-700">Fare Breakdown</h4>
+                  <div className="border rounded-lg p-4 space-y-2 bg-gray-50">
+                    <div className="flex justify-between"><span>Base Fare:</span> <span>{formatPrice(baseFare, currency)}</span></div>
+                    <div className="flex justify-between"><span>Taxes & Fees:</span> <span>{formatPrice(taxes, currency)}</span></div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-bold text-lg"><span>Grand Total:</span> <span>{formatPrice(displayPrice, currency)}</span></div>
                   </div>
                 </div>
+                {/* Baggage & Fare Details */}
+                <div>
+                  <h4 className="font-semibold mb-2 text-gray-700">Baggage & Fare Type</h4>
+                  <div className="border rounded-lg p-4 space-y-2 bg-gray-50">
+                    {flightOffer.travelerPricings[0].fareDetailsBySegment.map(fare => (
+                      <div key={fare.segmentId} className="flex justify-between items-center text-sm">
+                        <span>Segment {fare.segmentId} ({fare.cabin}):</span>
+                        <div className="flex items-center space-x-2">
+                           <Badge variant="outline">{fare.brandedFare || 'STANDARD'}</Badge>
+                           <Badge variant="secondary">{fare.includedCheckedBags.quantity || 0} checked bag(s)</Badge>
+                      </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Important Notices */}
+              {warnings && warnings.length > 0 && (
+                <>
+                  <Separator className="my-8" />
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Important Notices</h3>
+                  <Alert variant="warning">
+                    <AlertDescription>
+                      {warnings.map((w, i) => (
+                        <div key={i}><b>{w.title}:</b> {w.detail}</div>
+                      ))}
+                    </AlertDescription>
+                  </Alert>
+                </>
+              )}
+
+              {/* General Conditions */}
+              <div className="mt-8 pt-6 border-t print:mt-4">
+                 <h3 className="text-lg font-bold text-gray-800 mb-2">General Conditions</h3>
+                 <ul className="list-disc list-inside text-xs text-gray-500 space-y-1">
+                    <li>All times shown are local to the respective airports.</li>
+                    <li>Check-in counters close 60 minutes prior to departure. Online check-in is recommended.</li>
+                    <li>A valid government-issued photo ID or passport is required for all travelers.</li>
+                    <li>Fares are not guaranteed until ticketed. Changes may be subject to fees and fare differences.</li>
+                    <li>For detailed fare rules and baggage policies, please contact the issuing agency.</li>
+                 </ul>
+              </div>
+
               </CardContent>
-              <CardFooter className="flex flex-col md:flex-row gap-4 border-t">
+
+            <CardFooter className="flex flex-col md:flex-row gap-4 border-t p-6 bg-gray-50 print:hidden">
                 <Button variant="outline" className="flex-1" onClick={downloadETicket}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                   </svg>
-                  Download E-Ticket
+                Print / Download E-Ticket
                 </Button>
                 <Button variant="outline" className="flex-1" onClick={sendEmailConfirmation}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -309,41 +324,12 @@ export default function BookingData() {
                 </Link>
               </CardFooter>
             </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Need Help?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between">
-                    <div className="mb-4 md:mb-0">
-                      <h3 className="text-lg font-medium text-gray-900">Contact our support team</h3>
-                      <p className="text-gray-600 mt-1">Need to make changes or have questions about this booking?</p>
-                    </div>
-                    <div className="flex space-x-4">
-                      <Button variant="outline" className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        Call Support
-                      </Button>
-                      <Button variant="primary" className="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                        Live Chat
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </main>
       
+      <div className="print:hidden">
       <Footer />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateFlights } from '@/lib/data';
+import amadeusService from '@/lib/services/amadeusService';
 
 export async function GET(request) {
   // Parse query parameters
@@ -11,6 +11,7 @@ export async function GET(request) {
   const adults = parseInt(searchParams.get('adults') || '1');
   const children = parseInt(searchParams.get('children') || '0');
   const infants = parseInt(searchParams.get('infants') || '0');
+  const cabinClass = searchParams.get('cabinClass') || 'ECONOMY';
   
   // Validate required parameters
   if (!origin || !destination || !departureDate) {
@@ -21,15 +22,26 @@ export async function GET(request) {
   }
   
   try {
-    // Generate flights based on search criteria
-    const totalPassengers = adults + children + infants;
-    const flights = generateFlights(origin, destination, departureDate, returnDate, totalPassengers);
-    
+    // Call Amadeus API for flight search
+    const params = {
+      originLocationCode: origin,
+      destinationLocationCode: destination,
+      departureDate,
+      returnDate,
+      adults,
+      children,
+      infants,
+      travelClass: cabinClass.toUpperCase(),
+      currencyCode: 'USD',
+      nonStop: false,
+      max: 20
+    };
+    const flights = await amadeusService.searchFlights(params);
     return NextResponse.json(flights);
   } catch (error) {
-    console.error('Error generating flights:', error);
+    console.error('Error searching flights:', error);
     return NextResponse.json(
-      { error: 'Failed to generate flights' },
+      { error: 'Failed to search flights', details: error.message },
       { status: 500 }
     );
   }

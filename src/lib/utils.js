@@ -1,103 +1,46 @@
-/**
- * Utility functions for the application
- */
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge"
+import { format, parseISO } from 'date-fns';
 
-// Format date string to DD MMM YYYY format
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
 export function formatDate(dateString) {
   if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  });
+  return format(parseISO(dateString), 'yyyy-MM-dd');
 }
 
-// Format time string to HH:mm format
 export function formatTime(timeString) {
   if (!timeString) return '';
-  return timeString;
+  try {
+    return format(parseISO(timeString), 'HH:mm');
+  } catch (e) {
+    return timeString; // Fallback for 'HH:mm' format
+  }
 }
 
-// Format duration from minutes to hours and minutes
-export const formatDuration = (minutes) => {
-  if (!minutes) return '';
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${hours}h ${mins}m`;
-};
-
-// Calculate time difference between departure and arrival
-export function calculateDuration(departureTime, arrivalTime, departureDate, arrivalDate) {
-  const departure = new Date(`${departureDate}T${departureTime}`);
-  const arrival = new Date(`${arrivalDate}T${arrivalTime}`);
-  const diff = arrival - departure;
-  return Math.floor(diff / (1000 * 60));
+export function formatDuration(isoDuration) {
+    if (!isoDuration) return 'N/A';
+    const matches = isoDuration.match(/PT(\d+H)?(\d+M)?/);
+    if (!matches) return isoDuration;
+    const hours = matches[1] ? parseInt(matches[1].slice(0, -1)) : 0;
+    const minutes = matches[2] ? parseInt(matches[2].slice(0, -1)) : 0;
+    return `${hours}h ${minutes}m`;
 }
 
-// Format price with currency symbol
-export const formatPrice = (amount) => {
+export function formatPrice(amount, currency = 'USD') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    currency: currency,
   }).format(amount);
-};
+}
 
-// Generate a unique booking reference
 export function generateBookingReference() {
-  const prefix = 'TRP';
-  const timestamp = Date.now();
-  return `${prefix}${timestamp}`;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
-
-// Convert to base64
-export function encodeToBase64(str) {
-  return typeof window !== 'undefined' 
-    ? window.btoa(str) 
-    : Buffer.from(str).toString('base64');
-}
-
-// Convert from base64
-export function decodeFromBase64(str) {
-  return typeof window !== 'undefined' 
-    ? window.atob(str) 
-    : Buffer.from(str, 'base64').toString();
-}
-
-// Handle API errors
-export function handleApiError(error) {
-  console.error('API Error:', error);
-  return {
-    error: true,
-    message: error.message || 'An unknown error occurred',
-  };
-}
-
-// Validate email format
-export function isValidEmail(email) {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-}
-
-// Class merging utility
-export function cn(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
-
-// Helper function to get status badge variant
-export const getStatusVariant = (status) => {
-  const variants = {
-    confirmed: 'success',
-    ticketed: 'success',
-    pending: 'warning',
-    cancelled: 'error',
-    voided: 'error',
-    'refund-requested': 'warning',
-    'refund-approved': 'success',
-    'refund-rejected': 'error',
-    'in-process': 'warning'
-  };
-  return variants[status?.toLowerCase()] || 'default';
-};

@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectOption } from '@/components/ui/select';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { SORT_OPTIONS, FILTER_CATEGORIES } from '@/lib/constants';
 import useStore from '@/lib/store';
@@ -18,8 +18,8 @@ export default function FlightSearch() {
   const router = useRouter();
   const { searchParams, searchResults, searchFlights } = useStore();
   
-  const [flights, setFlights] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [sortOption, setSortOption] = useState('price_asc');
   const [filters, setFilters] = useState({
     stops: [],
@@ -28,42 +28,59 @@ export default function FlightSearch() {
   });
   
   useEffect(() => {
-    // Check if we have search parameters
-    if (!searchParams.origin || !searchParams.destination) {
-      router.push('/agents/searchIndex');
-      return;
-    }
-    
-    // Search for flights
-    setLoading(true);
-    const results = searchFlights();
-    
-    // Simulate loading
-    setTimeout(() => {
-      setFlights(results);
-      setLoading(false);
-    }, 1500);
+    const performSearch = async () => {
+      if (!searchParams.origin || !searchParams.destination) {
+        router.push('/agents/searchIndex');
+        return;
+      }
+      setLoading(true);
+      setError('');
+      try {
+        await searchFlights();
+      } catch (err) {
+        setError('Failed to fetch flights. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    performSearch();
   }, [searchParams, searchFlights, router]);
   
+  // Helper to check if a flight offer is expired
+  function isOfferExpired(offer) {
+    if (!offer.lastTicketingDate) return false;
+    // Treat lastTicketingDate as end of the day
+    const expiry = new Date(offer.lastTicketingDate + 'T23:59:59');
+    const now = new Date();
+    return now > expiry;
+  }
+  
+  // Debug: log all offers and their lastTicketingDate
+  if (typeof window !== 'undefined' && searchResults?.data) {
+    console.log('All offers:', searchResults.data.map(f => ({ id: f.clientId, lastTicketingDate: f.lastTicketingDate })));
+  }
+  
+  // Filter out expired flights before rendering
+  const flights = (searchResults?.data || []).filter(flight => !isOfferExpired(flight));
   // Sort flights based on selected option
   const sortFlights = (flightsToSort) => {
     switch (sortOption) {
       case 'price_asc':
-        return [...flightsToSort].sort((a, b) => a.price - b.price);
+        return [...flightsToSort].sort((a, b) => a.price.total - b.price.total);
       case 'price_desc':
-        return [...flightsToSort].sort((a, b) => b.price - a.price);
+        return [...flightsToSort].sort((a, b) => b.price.total - a.price.total);
       case 'duration_asc':
         return [...flightsToSort].sort((a, b) => a.duration - b.duration);
       case 'departure_asc':
         return [...flightsToSort].sort((a, b) => {
-          const timeA = a.departureTime.split(':').map(Number);
-          const timeB = b.departureTime.split(':').map(Number);
+          const timeA = a.itineraries[0].segments[0].departure.at.split('T')[1].split(':').map(Number);
+          const timeB = b.itineraries[0].segments[0].departure.at.split('T')[1].split(':').map(Number);
           return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1]);
         });
       case 'arrival_asc':
         return [...flightsToSort].sort((a, b) => {
-          const timeA = a.arrivalTime.split(':').map(Number);
-          const timeB = b.arrivalTime.split(':').map(Number);
+          const timeA = a.itineraries[0].segments[a.itineraries[0].segments.length - 1].arrival.at.split('T')[1].split(':').map(Number);
+          const timeB = b.itineraries[0].segments[b.itineraries[0].segments.length - 1].arrival.at.split('T')[1].split(':').map(Number);
           return timeA[0] * 60 + timeA[1] - (timeB[0] * 60 + timeB[1]);
         });
       default:
@@ -77,9 +94,10 @@ export default function FlightSearch() {
       // Filter by stops
       if (filters.stops.length > 0) {
         const stopsMatch = filters.stops.some(stop => {
-          if (stop === '0') return flight.stops === 0;
-          if (stop === '1') return flight.stops === 1;
-          if (stop === '2+') return flight.stops >= 2;
+          const numStops = flight.itineraries[0].segments.length - 1;
+          if (stop === '0') return numStops === 0;
+          if (stop === '1') return numStops === 1;
+          if (stop === '2+') return numStops >= 2;
           return false;
         });
         if (!stopsMatch) return false;
@@ -87,13 +105,13 @@ export default function FlightSearch() {
       
       // Filter by airlines
       if (filters.airlines.length > 0) {
-        const airlineCode = flight.airline.split(' ')[0].substring(0, 2).toUpperCase();
+        const airlineCode = flight.itineraries[0].segments[0].carrierCode;
         if (!filters.airlines.includes(airlineCode)) return false;
       }
       
       // Filter by departure time
       if (filters.departure_time.length > 0) {
-        const hour = parseInt(flight.departureTime.split(':')[0]);
+        const hour = parseInt(flight.itineraries[0].segments[0].departure.at.split('T')[1].substring(0, 2));
         const timeMatches = filters.departure_time.some(time => {
           if (time === 'early_morning') return hour >= 0 && hour < 6;
           if (time === 'morning') return hour >= 6 && hour < 12;
@@ -141,9 +159,10 @@ export default function FlightSearch() {
   // Get unique airlines from flights
   const uniqueAirlines = flights.length > 0
     ? Array.from(new Set(flights.map(flight => {
-        const airlineCode = flight.airline.split(' ')[0].substring(0, 2).toUpperCase();
-        return { code: airlineCode, name: flight.airline };
-      })))
+        const airlineCode = flight.itineraries[0].segments[0].carrierCode;
+        const airlineName = `Airline ${airlineCode}`; // Replace with a proper lookup if available
+        return JSON.stringify({ code: airlineCode, name: airlineName });
+      }))).map(item => JSON.parse(item))
     : [];
   
   return (
@@ -263,16 +282,17 @@ export default function FlightSearch() {
                     
                     <div className="flex items-center">
                       <span className="text-sm text-gray-600 mr-2">Sort by:</span>
-                      <Select 
-                        value={sortOption} 
-                        onChange={(e) => setSortOption(e.target.value)}
-                        className="text-sm w-48"
-                      >
-                        {SORT_OPTIONS.map((option) => (
-                          <SelectOption key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectOption>
-                        ))}
+                      <Select value={sortOption} onValueChange={setSortOption}>
+                        <SelectTrigger className="text-sm w-48">
+                          <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SORT_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -333,7 +353,7 @@ export default function FlightSearch() {
                   </div>
                   
                   {filteredAndSortedFlights.map((flight) => (
-                    <FlightCard key={flight.id} flight={flight} />
+                    <FlightCard key={flight.clientId} flight={flight} />
                   ))}
                 </div>
               )}
